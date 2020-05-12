@@ -71,10 +71,15 @@ pipeline {
     }
     post {
         always {
-            echo 'Done'
-             mail to: 'jianwei.hu@windriver.com',
+            emailext (
              subject: "${params.combo}",
-             body: "testing,${params.combo}"
+             body: '''testing,${params.combo}
+                    This is one testing mail
+                   '''
+             to: 'jianwei.hu@windriver.com',
+             from: 'jianwei.hu@windriver.com',
+            )
+            echo 'Done'
         }
         success {
             echo 'pass'
