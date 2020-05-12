@@ -34,8 +34,8 @@ pipeline {
             }
             steps {
                 script {
-                    SHARED_IMAGE_NET = ${env.SHARED_IMAGE_NET}
-                    SHARED_IMAGE_HTTP = ${env.SHARED_IMAGE_HTTP}
+                    SHARED_IMAGE_NET = ${SHARED_IMAGE_NET}
+                    SHARED_IMAGE_HTTP = ${SHARED_IMAGE_HTTP}
                 }
                 sh "echo ${env.SHARED_IMAGE_NET}"
                 sh "echo ${env.SHARED_IMAGE_HTTP}"
@@ -71,7 +71,7 @@ pipeline {
             }
             steps {
                 script {
-                    dashboard = ${env.dashboard}
+                    dashboard = ${dashboard}
                 }
                 echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
                 echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
