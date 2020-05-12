@@ -33,10 +33,6 @@ pipeline {
                 SHARED_IMAGE_HTTP = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^NOW_LATEST_IMAGE_PATH:<a href=\" |awk -F\">|<\" \'{print \$3}\'")
             }
             steps {
-                script {
-                    env.SHARED_IMAGE_NET = ${SHARED_IMAGE_NET}
-                    env.SHARED_IMAGE_HTTP = ${SHARED_IMAGE_HTTP}
-                }
                 sh "echo ${env.SHARED_IMAGE_NET}"
                 sh "echo ${env.SHARED_IMAGE_HTTP}"
                 sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -c ${env.SHARED_IMAGE_NET}"
@@ -70,11 +66,8 @@ pipeline {
                 dashboard = "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
             }
             steps {
-                script {
-                    env.dashboard = ${dashboard}
-                }
                 echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
-                echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
+                //echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
                 echo "${env.dashboard}"
             }
         }
