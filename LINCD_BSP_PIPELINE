@@ -75,7 +75,7 @@ pipeline {
              subject: "${params.combo}",
              body: """testing,${params.combo}
                     This is one testing mail
-                   """
+                   """,
              from: "jianwei.hu@windriver.com",
              to: "jianwei.hu@windriver.com"
             )
