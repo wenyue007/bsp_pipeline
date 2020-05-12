@@ -77,7 +77,7 @@ pipeline {
                     This is one testing mail
                    """,
              from: "jianwei.hu@windriver.com",
-             to: "jianwei.hu@windriver.com"
+             to: "jianwei.hu@windriver.com,hujianwei00007@163.com"
             )
             echo 'Done'
         }
