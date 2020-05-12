@@ -1,0 +1,86 @@
+pipeline {
+    agent { label 'good_host' }
+    environment {
+        SHARED_IMAGE_NET = ""
+        SHARED_IMAGE_HTTP = ""
+    }
+    parameters {
+        choice(name: 'config', choices: ["standard", "next", "circ"], description: 'project configs')
+        string(name: 'boards', defaultValue: 'NUC7i5DNK1E,Harcuvar,CoffeLakeS,CascadeLake', description: 'supported boards')
+        string(name: 'combo', defaultValue: 'intel-x86-64@BSP@standard@glibc-std', description: 'build combos -b')
+    }
+
+    stages {
+        stage('Build') {
+            agent { label 'good_host' }
+            steps("${params.combo}") {
+                script {
+                    def jobs = [:]
+                    params.combo.tokenize(',').each {
+                        jobs["$it"] = {
+                            sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -d"
+                            }
+                        }
+                     parallel jobs
+                }
+            }
+        }
+
+        stage('Shared Images') {
+            environment {
+                SHARED_IMAGE_NET = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^INFO: The new backend path:\" |awk -F\": \" \'{print \$3}\'")
+                SHARED_IMAGE_HTTP = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^NOW_LATEST_IMAGE_PATH:<a href=\" |awk -F\">|<\" \'{print \$3}\'")
+            }
+            steps {
+                sh "echo ${env.SHARED_IMAGE_NET}"
+                sh "echo ${env.SHARED_IMAGE_HTTP}"
+                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -c ${env.SHARED_IMAGE_NET}"
+            }
+        }
+
+        stage('Test') {
+            agent { label "runtime_node" }
+            steps("$board_name"){
+                script {
+                    def jobs = [:]
+                    params.boards.tokenize(',').each {
+                        jobs["$it"] = {
+                        try {
+                            sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it} -d"
+                        }
+                        catch (exc) {
+                            echo 'Testing failed!'
+                            currentBuild.result = 'SUCCESS'
+                        }
+                        }
+                        }
+                     parallel jobs
+                }
+            }
+        }
+
+        stage('Report') {
+            environment {
+                links = sh(returnStdout: true, script: "echo ${params.combo}|sed \"s/@/%20/g\"")
+            }
+            steps {
+                echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
+                echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
+            }
+        }
+    }
+    post {
+        always {
+            echo 'Done'
+             mail to: 'jianwei.hu@windriver.com',
+             subject: "${params.combo}",
+             body: "testing,${params.combo}"
+        }
+        success {
+            echo 'pass'
+        }
+        failure {
+            echo 'fail'
+        }
+    }
+}
