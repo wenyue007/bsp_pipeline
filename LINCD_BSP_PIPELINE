@@ -1,9 +1,9 @@
 pipeline {
     agent { label 'good_host' }
     environment {
-        dSHARED_IMAGE_NET = ""
-        dSHARED_IMAGE_HTTP = ""
-        ddashboard = ""
+        SHARED_IMAGE_NET = ""
+        SHARED_IMAGE_HTTP = ""
+        dashboard = ""
     }
     parameters {
         choice(name: 'config', choices: ["standard", "next", "circ"], description: 'project configs')
@@ -34,8 +34,8 @@ pipeline {
             }
             steps {
                 script {
-                    SHARED_IMAGE_NET = ${SHARED_IMAGE_NET}
-                    SHARED_IMAGE_HTTP = ${SHARED_IMAGE_HTTP}
+                    env.SHARED_IMAGE_NET = ${SHARED_IMAGE_NET}
+                    env.SHARED_IMAGE_HTTP = ${SHARED_IMAGE_HTTP}
                 }
                 sh "echo ${env.SHARED_IMAGE_NET}"
                 sh "echo ${env.SHARED_IMAGE_HTTP}"
@@ -50,13 +50,13 @@ pipeline {
                     def jobs = [:]
                     params.boards.tokenize(',').each {
                         jobs["$it"] = {
-                        try {
-                            sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it} -d"
-                        }
-                        catch (exc) {
-                            echo 'Testing failed!'
-                            currentBuild.result = 'SUCCESS'
-                        }
+                            try {
+                                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it} -d"
+                            }
+                            catch (exc) {
+                                echo 'Testing failed!'
+                                currentBuild.result = 'SUCCESS'
+                            }
                         }
                         }
                      parallel jobs
@@ -71,7 +71,7 @@ pipeline {
             }
             steps {
                 script {
-                    dashboard = ${dashboard}
+                    env.dashboard = ${dashboard}
                 }
                 echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
                 echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
