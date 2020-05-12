@@ -70,7 +70,7 @@ pipeline {
                 dashboard = "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
             }
             steps {
-                scirpt {
+                script {
                     dashboard = ${env.dashboard}
                 }
                 echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
