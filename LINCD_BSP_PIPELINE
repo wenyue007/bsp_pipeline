@@ -76,8 +76,8 @@ pipeline {
              body: """testing,${params.combo}
                     This is one testing mail
                    """
-             to: "jianwei.hu@windriver.com",
-             from: "jianwei.hu@windriver.com"
+             from: "jianwei.hu@windriver.com",
+             to: "jianwei.hu@windriver.com"
             )
             echo 'Done'
         }
