@@ -100,22 +100,23 @@ spec:
         }
 
         stage('Test') {
-            agent { label "runtime_node" }
             steps("$board_name"){
-                script {
-                    def jobs = [:]
-                    params.boards.tokenize(',').each {
-                        jobs["$it"] = {
-                            try {
-                                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it} -d"
+                container('ubuntu1604build') {
+                    script {
+                        def jobs = [:]
+                        params.boards.tokenize(',').each {
+                            jobs["$it"] = {
+                                try {
+                                    sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it} -d"
+                                }
+                                catch (exc) {
+                                    echo 'Testing failed!'
+                                    currentBuild.result = 'SUCCESS'
+                                }
                             }
-                            catch (exc) {
-                                echo 'Testing failed!'
-                                currentBuild.result = 'SUCCESS'
                             }
-                        }
-                        }
-                     parallel jobs
+                         parallel jobs
+                    }
                 }
             }
         }
