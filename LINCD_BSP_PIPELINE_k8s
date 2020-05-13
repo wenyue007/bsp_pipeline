@@ -100,7 +100,7 @@ spec:
                     container('ubuntu1604build') {
                         sh "echo ${env.SHARED_IMAGE_NET}"
                         sh "echo ${env.SHARED_IMAGE_HTTP}"
-                        sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -c ${env.SHARED_IMAGE_NET}"
+                        sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -r ${params.config} -b ${params.combo} -c"
                     }
                 }
         }
