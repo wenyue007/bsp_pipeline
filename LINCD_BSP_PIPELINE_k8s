@@ -93,14 +93,15 @@ spec:
 
         stage('Shared Images') {
             container('ubuntu1604build') {
-            environment {
-                SHARED_IMAGE_NET = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^INFO: The new backend path:\" |awk -F\": \" \'{print \$3}\'")
-                SHARED_IMAGE_HTTP = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^NOW_LATEST_IMAGE_PATH:<a href=\" |awk -F\">|<\" \'{print \$3}\'")
-            }
-            steps {
-                sh "echo ${env.SHARED_IMAGE_NET}"
-                sh "echo ${env.SHARED_IMAGE_HTTP}"
-                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -c ${env.SHARED_IMAGE_NET}"
+                environment {
+                    SHARED_IMAGE_NET = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^INFO: The new backend path:\" |awk -F\": \" \'{print \$3}\'")
+                    SHARED_IMAGE_HTTP = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^NOW_LATEST_IMAGE_PATH:<a href=\" |awk -F\">|<\" \'{print \$3}\'")
+                }
+                steps {
+                    sh "echo ${env.SHARED_IMAGE_NET}"
+                    sh "echo ${env.SHARED_IMAGE_HTTP}"
+                    sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -c ${env.SHARED_IMAGE_NET}"
+                }
             }
         }
 
@@ -127,14 +128,15 @@ spec:
 
         stage('Report') {
             container('ubuntu1604build') {
-            environment {
-                links = sh(returnStdout: true, script: "echo ${params.combo}|sed \"s/@/%20/g\"")
-                dashboard = "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
-            }
-            steps {
-                echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
-                //echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
-                echo "${env.dashboard}"
+                environment {
+                    links = sh(returnStdout: true, script: "echo ${params.combo}|sed \"s/@/%20/g\"")
+                    dashboard = "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
+                }
+                steps {
+                    echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
+                    //echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
+                    echo "${env.dashboard}"
+                }
             }
         }
     }
@@ -143,9 +145,6 @@ spec:
             emailext (
              subject: "[Test]:${params.combo} on ${params.boards}",
              body: """This is one testing mail
-                      ${env.SHARED_IMAGE_NET} 
-                      ${env.SHARED_IMAGE_HTTP} 
-                      ${env.dashboard} 
                    """,
              from: "jianwei.hu@windriver.com",
              to: "jianwei.hu@windriver.com,hujianwei00007@163.com"
