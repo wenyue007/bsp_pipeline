@@ -1,0 +1,162 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: test
+spec:
+  nodeSelector:
+     pek-lpgtest21: "True"
+  containers:
+  - name: ubuntu1604build
+    image: wr-docker-registry:5000/ubuntu1604_64_py3:wassp_v1.0
+    securityContext:
+      privileged: true
+    resources:
+      requests:
+        cpu: 12
+        memory: 20Gi
+      limits:
+        cpu: 12
+        memory: 20Gi
+    command:
+    - cat
+    tty: true
+
+    volumeMounts:
+     - name: jhu2
+       mountPath: /folk/jhu2
+     - name: xdong
+       mountPath: /folk/xdong
+     - name: pek-lpgtest7302
+       mountPath: /net/pek-lpgtest7302/buildarea1/SharedImage/
+     - name: buildarea1
+       mountPath: /buildarea1
+     - name: lpgbuild
+       mountPath: /lpg-build
+  volumes:
+   - name: localtime
+     hostPath:
+       path: /etc/localtime
+   - name: timezone
+     hostPath:
+       path: /etc/timezone
+   - name: jhu2
+     hostPath:
+       path: /folk/jhu2
+   - name: xdong
+     hostPath:
+       path: /folk/xdong
+   - name: pek-lpgtest7302
+     hostPath:
+       path: /net/pek-lpgtest7302/buildarea1/SharedImage/
+   - name: publiclog
+     hostPath:
+       path: /lpg-build/cdc/publiclog
+   - name: buildarea1
+     hostPath:
+       path: /buildarea1
+   - name: lpgbuild
+     hostPath:
+       path: /lpg-build
+"""
+    }
+  }
+
+    environment {
+        SHARED_IMAGE_NET = ""
+        SHARED_IMAGE_HTTP = ""
+        dashboard = ""
+    }
+    parameters {
+        choice(name: 'config', choices: ["standard", "next", "circ"], description: 'project configs')
+        string(name: 'boards', defaultValue: 'NUC7i5DNK1E,Harcuvar,CoffeLakeS,CascadeLake', description: 'supported boards')
+        string(name: 'combo', defaultValue: 'intel-x86-64@BSP@standard@glibc-std', description: 'build combos -b')
+    }
+
+    stages {
+        stage('Build') {
+                steps("${params.combo}") {
+                    container('ubuntu1604build') {
+                    script {
+                        def jobs = [:]
+                        params.combo.tokenize(',').each {
+                            jobs["$it"] = {
+                                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -d"
+                                }
+                            }
+                         parallel jobs
+                    }
+                }
+            }
+        }
+
+        stage('Shared Images') {
+            environment {
+                SHARED_IMAGE_NET = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^INFO: The new backend path:\" |awk -F\": \" \'{print \$3}\'")
+                SHARED_IMAGE_HTTP = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^NOW_LATEST_IMAGE_PATH:<a href=\" |awk -F\">|<\" \'{print \$3}\'")
+            }
+            steps {
+                sh "echo ${env.SHARED_IMAGE_NET}"
+                sh "echo ${env.SHARED_IMAGE_HTTP}"
+                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -c ${env.SHARED_IMAGE_NET}"
+            }
+        }
+
+        stage('Test') {
+            agent { label "runtime_node" }
+            steps("$board_name"){
+                script {
+                    def jobs = [:]
+                    params.boards.tokenize(',').each {
+                        jobs["$it"] = {
+                            try {
+                                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it} -d"
+                            }
+                            catch (exc) {
+                                echo 'Testing failed!'
+                                currentBuild.result = 'SUCCESS'
+                            }
+                        }
+                        }
+                     parallel jobs
+                }
+            }
+        }
+
+        stage('Report') {
+            environment {
+                links = sh(returnStdout: true, script: "echo ${params.combo}|sed \"s/@/%20/g\"")
+                dashboard = "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
+            }
+            steps {
+                echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${env.links}"
+                //echo "http://pek-lpggp5.wrs.com:5001/jenkins_builder/jobs?q=${params.combo.replace("@", "%20")}"
+                echo "${env.dashboard}"
+            }
+        }
+    }
+    post {
+        always {
+            emailext (
+             subject: "[Test]:${params.combo} on ${params.boards}",
+             body: """This is one testing mail
+                      ${env.SHARED_IMAGE_NET} 
+                      ${env.SHARED_IMAGE_HTTP} 
+                      ${env.dashboard} 
+                   """,
+             from: "jianwei.hu@windriver.com",
+             to: "jianwei.hu@windriver.com,hujianwei00007@163.com"
+            )
+            echo 'Done'
+        }
+        success {
+            echo 'pass'
+        }
+        failure {
+            echo 'fail'
+        }
+    }
+}
