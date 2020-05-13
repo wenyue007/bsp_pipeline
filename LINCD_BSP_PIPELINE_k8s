@@ -82,7 +82,7 @@ spec:
                         def jobs = [:]
                         params.combo.tokenize(',').each {
                             jobs["$it"] = {
-                                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -d"
+                                sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config}"
                                 }
                             }
                          parallel jobs
@@ -107,7 +107,7 @@ spec:
                         params.boards.tokenize(',').each {
                             jobs["$it"] = {
                                 try {
-                                    sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it} -d"
+                                    sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -t ${it}"
                                 }
                                 catch (exc) {
                                     echo 'Testing failed!'
