@@ -7,8 +7,6 @@ kind: Pod
 metadata:
   namespace: test
 spec:
-  nodeSelector:
-     pek-lpgtest21: "True"
   containers:
   - name: ubuntu1604build
     image: wr-docker-registry:5000/ubuntu1604_64_py3:wassp_v1.0
