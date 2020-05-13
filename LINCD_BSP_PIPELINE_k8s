@@ -93,9 +93,9 @@ spec:
 
         stage('Shared Images') {
                 steps {
+                    SHARED_IMAGE_NET = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^INFO: The new backend path:\" |awk -F\": \" \'{print \$3}\'")
+                    SHARED_IMAGE_HTTP = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^NOW_LATEST_IMAGE_PATH:<a href=\" |awk -F\">|<\" \'{print \$3}\'")
                     container('ubuntu1604build') {
-                        SHARED_IMAGE_NET = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^INFO: The new backend path:\" |awk -F\": \" \'{print \$3}\'")
-                        SHARED_IMAGE_HTTP = sh(returnStdout: true, script: "cat /folk/jhu2/scripts/scripts_repo/bsp_ci/logs/build_pipe.log.${params.combo}|grep \"^NOW_LATEST_IMAGE_PATH:<a href=\" |awk -F\">|<\" \'{print \$3}\'")
                         sh "echo ${SHARED_IMAGE_NET}"
                         sh "echo ${SHARED_IMAGE_HTTP}"
                         sh "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -c ${SHARED_IMAGE_NET}"
