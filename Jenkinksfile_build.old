@@ -1,0 +1,178 @@
+pipeline {
+  options {
+    buildDiscarder(logRotator(daysToKeepStr: '14'))
+  }
+
+    parameters {
+        booleanParam(name: 'execute_test', defaultValue: true, description: 'Default value is true, if just want to generate test plan for WASSP, set it as false.')
+        booleanParam(name: 'force_build', defaultValue: true, description: '')
+        booleanParam(name: 'debug', defaultValue: false, description: 'If set \'debug\' as true, test results will upload to \'WRLlinux sandbox\'')
+        choice(name: 'enable_local_sstate', choices: ["yes", "no"], description: '')
+        choice(name: 'test_step', choices: ["build", "all"], description: '''This parameter will replace \'just_build\',  same function is implemented by test_step=build
+    all -- Build and run test
+    build -- just build
+    NOTE:  When use this parameter, please set execute_test = True
+    ''')
+        choice(name: 'domain', choices: ["BSP", "Kernel", "Userspace", "LTP", "Benchmark"], description: '')
+        choice(name: 'wr_version', choices: ["master-wr", "wrlinux-10.19", "wrlinux_ci", "wrlinux-10.18"], description: '''master-wr -- Internal git repo,  run \'next\' configure testing with this version
+    wrlinux_ci -- From release server, use it to run weekly testing against one CI RC on ‘’standard” config
+    wrlinux-10.19 -- LTS19 release testing; run the testing on LTS19 branch.''')
+        choice(name: 'next_config', choices: ["yes", "no"], description: '')
+        choice(name: 'spin', choices: ["GIT", "latest"], description: '''latest -- latest spin, it depends on wr_version <br>
+    GIT -- build with git repo installed under /lpg-build/cdc/fast_prod/<VERSION> <br>
+              VERSION depend on wr_version <br>
+    ''')
+        string(name: 'user_story', defaultValue: '', description: 'async bsp user story or runtime regression user story ')
+        choice(name: 'bsp', choices: ['intel-x86-64', 'altera-socfpga', 'bcm-xlp', 'cav-octeon3', 'cav-octeon3', 'cav-octeon3lib64', 'fsl-b4xxx', 'fsl-e500mc', 'fsl-ls10xx', 'fsl-ls20xx', 'fsl-p2020', 'fsl-t2xxx', 'fsl-t4xxx', 'nxp-imx7', 'intel-broadwell-32', 'intel-broadwell-64', 'intel-haswell-32', 'intel-haswell-64', 'intel-kabylake-32', 'intel-kabylake-64', 'intel-skylake-64', 'intel-skylake-avx512-64', 'intel-x86-32', 'nxp-ls10xx', 'nxp-ls20xx', 'nxp-t4xxx', 'qemuarm', 'qemuarm64', 'qemuarma9', 'qemux86', 'qemumips64', 'xilinx-zynq', 'renesas-rcar-h3', 'xilinx-zynqmp', 'ti-am65x', 'ti-am335x', 'bcm-2xxx-rpi4', 'marvell-cn96xx'], description: '')
+        string(name: 'target_name', defaultValue: 'builder', description: '''Please ONLY file target name,  if target is qemu, target name is bsp name <br>
+    intel_5500(17908) 　SDP_Wildcat_Pass(22603)  IMX7D-SABRESD(25012)''')
+        string(name: 'barcode', defaultValue: '00000', description: '')
+        choice(name: 'fs_type', choices: ['glibc-std', 'glibc-cgl', 'glibc-std-sato', 'glibc-small', 'ovp-kvm', 'ovp-guest', 'core-image-base'], description: '')
+        choice(name: 'kernel_type', choices: ["standard", "cgl", "preempt-rt"], description: '')
+        string(name: 'extra_config', defaultValue: '--templates feature/intel-qat feature/xfce feature/dpdk feature/bsp-extras feature/docker feature/kexec feature/kdump feature/lxc feature/tpm2 --layers meta-dpdk', description: '''extra_config option: Input extra_config template feature if needed
+    For example:
+    --templates feature/dpdk feature/target-toolchain feature/docker feature/kexec feature/kdump feature/system-stats feature/valgrind feature/iotop feature/tpm2
+
+    Note:
+    correct rule: --templates feature
+    incorrect usage: --template feature''')
+        choice(name: 'multilib', choices: ['', 'lib32', 'lib64', 'libn32'], description: '')
+        choice(name: 'kernel_arch', choices: ['x86-64', 'i586', 'i686', 'x86', 'arm', 'aarch64', 'powerpc', 'powerpc64', 'mips32', 'mips64'], description: '''Specify kernel arch, this parameter is used by kernel related testing, such as ltp, kts.
+    leave it empty if userspace or bsp testing.''')
+        string(name: 'dtb_file', defaultValue: '', description: 'If don\'t need dtb, leave it as empty.')
+        choice(name: 'init_type', choices: ["systemd", "sysvinit"], description: '')
+        string(name: 'key_word', defaultValue: '', description: '''If set key word, it will be write into excel then upload to LTAF.
+    If don\'t need key word, leave it as empty.
+    ''')
+        string(name: 'extra_key', defaultValue: '', description: '''If set extra key, it will be write into excel then upload to LTAF.
+    If don\'t need key word, leave it as empty.''')
+        choice(name: 'test_group', choices: ["auto", "customized"], description: '''auto -- select test cases by combo automatically <br>
+    customized -- cases listed in customized_case_list will be run <br>''')
+        string(name: 'tag', defaultValue: 'standalone', description: '''Support multi tags, separate tags with \',\'
+    standalone: for test cases which only need one board
+    network: for test cases which need 2 board
+    ptest: ptest test cases
+    cgl: cgl specification cases
+    xfce
+    security-default
+    security-targeted
+    security-standard
+    security-minimum
+    busybox
+    ''')
+        choice(name: 'disk_boot', choices: ["no", "yes"], description: 'Whether target will be boot up with hard disk or nfs filesystem.')
+        text(name: 'customized_case_list', defaultValue: '', description: '')
+        text(name: 'ignored_case_list', defaultValue: '', description: '')
+        text(name: 'active_plan', defaultValue: 'all', description: '')
+        text(name: 'local_conf', defaultValue: '', description: '')
+        string(name: 'email_recipient_list', defaultValue: 'jianwei.hu@windriver.com', description: '')
+        choice(name: 'ltaf_fs_type', choices: ['', 'glibc-std-xfce', 'glibc-cgl-xfce'], description: '')
+        string(name: 'tester_name', defaultValue: '', description: '')
+        string(name: 'priority', defaultValue: '', description: '')
+        string(name: 'distro', defaultValue: '', description: '')
+        string(name: 'boot_config', defaultValue: '', description: '')
+        string(name: 'build_cmd', defaultValue: '', description: '''/folk/xdong/WASSP_LINUX_1019/testcases/wrlinux/wr-testing/core-linux-tools/regression_automation/execute_shell.sh
+    /folk/jhu2/repo/wassp_cd/WASSP_LINUX_MASTER_WR/testcases/wrlinux/wr-testing/core-linux-tools/regression_automation/execute_shell.sh
+    /lpg-build/cdc/WASSP_LINUX_1019/testcases/wrlinux/wr-testing/core-linux-tools/regression_automation/execute_shell.sh
+    /lpg-build/cdc/WASSP_LINUX_MASTER_WR/testcases/wrlinux/wr-testing/core-linux-tools/regression_automation/execute_shell.sh''')
+        string(name: 'component', defaultValue: '', description: '')
+        string(name: 'shared_image', defaultValue: '', description: '')
+        string(name: 'feature', defaultValue: '', description: '''AB
+    No_AB
+    AB_sb_ima
+    grub_gpg
+    seloader''')
+      }
+
+  agent {
+    kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: test
+spec:
+  containers:
+  - name: ubuntu1604build
+    image: wr-docker-registry:5000/ubuntu1604_64_py3:wassp_v1.0
+    env:
+      - name: MY_NODE_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: spec.nodeName
+    securityContext:
+      privileged: true
+    resources:
+      requests:
+        cpu: 24
+        memory: 20Gi
+      limits:
+        cpu: 24
+        memory: 20Gi
+    command:
+    - cat
+    tty: true
+
+    volumeMounts:
+     - name: jhu2
+       mountPath: /folk/jhu2
+     - name: xdong
+       mountPath: /folk/xdong
+     - name: pek-lpgtest7302
+       mountPath: /net/pek-lpgtest7302/buildarea1/SharedImage/
+     - name: buildarea1
+       mountPath: /buildarea1
+     - name: lpgbuild
+       mountPath: /lpg-build
+  volumes:
+   - name: localtime
+     hostPath:
+       path: /etc/localtime
+   - name: timezone
+     hostPath:
+       path: /etc/timezone
+   - name: jhu2
+     hostPath:
+       path: /folk/jhu2
+   - name: xdong
+     hostPath:
+       path: /folk/xdong
+   - name: pek-lpgtest7302
+     hostPath:
+       path: /net/pek-lpgtest7302/buildarea1/SharedImage/
+   - name: publiclog
+     hostPath:
+       path: /lpg-build/cdc/publiclog
+   - name: buildarea1
+     hostPath:
+       path: /buildarea1
+   - name: lpgbuild
+     hostPath:
+       path: /lpg-build
+"""
+    }
+  }
+
+  stages {
+   stage('Test') {
+     steps {
+       container('ubuntu1604build') {
+          sh '''#!/bin/bash
+            echo "start"
+            env
+             /lpg-build/cdc/jenkins-builder-v2/scripts/build.sh
+        '''
+       }
+    }
+   }
+   stage('Report') {
+     steps {
+       container('ubuntu1604build') {
+         sh '''#!/bin/bash
+           echo "placeholder"
+       '''
+       }
+    }
+  }
+  }
+}
