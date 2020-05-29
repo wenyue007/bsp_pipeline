@@ -1,0 +1,176 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: test
+spec:
+  containers:
+  - name: ubuntu1604build
+    image: wr-docker-registry:5000/ubuntu1604_64_py3:wassp_v1.0
+    securityContext:
+      privileged: true
+    resources:
+      requests:
+        cpu: 4
+        memory: 8Gi
+      limits:
+        cpu: 8
+        memory: 16Gi
+    command:
+    - cat
+    tty: true
+
+    volumeMounts:
+     - name: jhu2
+       mountPath: /folk/jhu2
+     - name: xdong
+       mountPath: /folk/xdong
+     - name: pek-lpgtest7302
+       mountPath: /net/pek-lpgtest7302/buildarea1/SharedImage/
+     - name: buildarea1
+       mountPath: /buildarea1
+     - name: lpgbuild
+       mountPath: /lpg-build
+  volumes:
+   - name: localtime
+     hostPath:
+       path: /etc/localtime
+   - name: timezone
+     hostPath:
+       path: /etc/timezone
+   - name: jhu2
+     hostPath:
+       path: /folk/jhu2
+   - name: xdong
+     hostPath:
+       path: /folk/xdong
+   - name: pek-lpgtest7302
+     hostPath:
+       path: /net/pek-lpgtest7302/buildarea1/SharedImage/
+   - name: publiclog
+     hostPath:
+       path: /lpg-build/cdc/publiclog
+   - name: buildarea1
+     hostPath:
+       path: /buildarea1
+   - name: lpgbuild
+     hostPath:
+       path: /lpg-build
+"""
+    }
+  }
+    environment {
+        SHARED_IMAGE_NET = ""
+        SHARED_IMAGE_HTTP = ""
+        dashboard = ""
+    }
+    parameters {
+        choice(name: 'config', choices: ["standard", "next", "circ"], description: 'project configs')
+        string(name: 'boards', defaultValue: 'NUC7i5DNK1E,Harcuvar,CoffeLakeS,CascadeLake', description: 'supported boards')
+        string(name: 'domains', defaultValue: 'BSP,Kernel,LTP', description: 'supported testing domain')
+        string(name: 'combo', defaultValue: 'intel-x86-64@Combined@standard@glibc-std', description: 'build combos -b')
+    }
+    stages {
+        stage('Fetch Product Source') {
+            steps {
+                container('ubuntu1604build') {
+                    sh "echo git clone product codes from git repo"
+                }
+            }
+        }
+        stage('Build Product Image') {
+            steps {
+                container('ubuntu1604build') {
+                    sh "echo bitbake rootfs"
+                }
+            }
+        }
+        stage('Fetch Test Layer') {
+            steps {
+                container('ubuntu1604build') {
+                    sh "echo git clone testing layers"
+                }
+            }
+        }
+        stage('Build Test Image') {
+            steps("${params.combo}") {
+                container('ubuntu1604build') {
+                    script {
+                        def jobs = [:]
+                        params.combo.tokenize(',').each {
+                            jobs["$it"] = {
+                                sh "echo /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config}"
+                            }
+                        }
+                        parallel jobs
+                    }
+                }
+            }
+        }
+        stage('Demo start from this stage') {
+            steps {
+                input('Do you want to proceed?')
+            }
+        }
+        stage('Verify Shared Image') {
+            steps {
+                container('ubuntu1604build') {
+                    sh "echo /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -r ${params.config} -b ${params.combo} -c"
+                }
+            }
+        }
+        stage('Wind River Linux Runtime Testing') {
+            steps{
+                container('ubuntu1604build') {
+                    script {
+                        def jobs = [:]
+                        params.domains.tokenize(',').each {
+                            def sub_domain = it
+                            params.boards.tokenize(',').each {
+                                def name = it
+                                def replaced = "Combined"
+                                def sub_combo = sh(script: "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -R ${params.combo}_${replaced}_${sub_domain}", returnStdout: true).trim()
+                                def groups = sh(script: "bash /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${sub_combo} -r ${params.config} -m ${name} -s -G", returnStdout: true).trim()
+                                for (group in groups.split(',')) {
+                                    def sub_group = group
+                                    jobs["${sub_domain} test ${group}"] = {
+                                        sh "echo /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${sub_combo} -r ${params.config} -m ${name} -g ${sub_group}"
+                                    }
+                                }
+                            }
+                        }
+                        parallel jobs
+                    }
+                }
+            }
+        }
+        stage('Report') {
+            steps {
+                container('ubuntu1604build') {
+                    sh "echo /folk/jhu2/scripts/scripts_repo/bsp_ci/lincd_bsp_pipeline.sh -b ${params.combo} -r ${params.config} -j"
+                }
+            }
+        }
+    }
+    post {
+        always {
+            emailext (
+            subject: "[Test]:${params.combo} on ${params.boards}",
+            body: """This is one testing mail
+                   """,
+            from: "jianwei.hu@windriver.com",
+            to: "jianwei.hu@windriver.com"
+            )
+            echo 'Done'
+        }
+        success {
+            echo 'pass'
+        }
+        failure {
+            echo 'fail'
+        }
+    }
+}
